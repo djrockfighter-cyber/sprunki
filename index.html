@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sprunki-Style Sequencer</title>
+<style>
+body {
+  font-family: 'Comic Sans MS', cursive;
+  text-align: center;
+  background: linear-gradient(#88ddff, #ffffff);
+  color: #222;
+  margin:0;
+  padding:0;
+}
+h1 {
+  margin:10px;
+  font-size:2em;
+}
+#grid {
+  display: inline-grid;
+  grid-template-columns: repeat(8, 60px);
+  grid-gap: 6px;
+  margin-top: 20px;
+  position: relative;
+}
+.cell {
+  width:60px;
+  height:60px;
+  background:#66ccff;
+  border-radius:8px;
+  cursor:pointer;
+  transition: transform 0.1s, background 0.2s;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:bold;
+  font-size:18px;
+  color:#fff;
+}
+.cell.active { background:#ff5722; }
+.cell.current { border: 3px solid #ffff00; transform: scale(1.1); }
+
+#controls { margin-top: 20px; }
+#bpmLabel { margin-left: 10px; }
+
+#characters {
+  display:flex;
+  justify-content:center;
+  gap:20px;
+  margin-top: 20px;
+}
+.character {
+  width:50px;
+  height:50px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:30px;
+  cursor:default;
+  transition: transform 0.2s;
+}
+.character.active { transform: scale(1.3) translateY(-10px); }
+</style>
+</head>
+<body>
+
+<h1>🎵 Sprunki Sequencer 🎵</h1>
+
+<div id="grid"></div>
+
+<div id="controls">
+  <button id="playBtn">Play</button>
+  <button id="stopBtn">Stop</button>
+  <label>BPM: <input type="number" id="bpm" value="120" min="60" max="300"></label>
+</div>
+
+<div id="characters">
+  <div class="character" id="char1">☀️</div>
+  <div class="character" id="char2">🥤</div>
+  <div class="character" id="char3">🍹</div>
+  <div class="character" id="char4">🍋</div>
+</div>
+
+<script>
+const rows = 4, cols = 8;
+const grid = document.getElementById('grid');
+const cells = [];
+const characters = [
+  document.getElementById('char1'),
+  document.getElementById('char2'),
+  document.getElementById('char3'),
+  document.getElementById('char4')
+];
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+// Define instruments with different waveforms
+const instruments = [
+  {freq: 100, type:'square'},  // Kick
+  {freq: 200, type:'sawtooth'}, // Snare
+  {freq: 300, type:'triangle'}, // Hi-Hat
+  {freq: 400, type:'sine'}      // Clap
+];
+
+// Build grid
+for(let r=0; r<rows; r++){
+  for(let c=0; c<cols; c++){
+    const cell = document.createElement('div');
+    cell.classList.add('cell');
+    cell.dataset.row = r;
+    cell.dataset.col = c;
+    cell.onclick = () => cell.classList.toggle('active');
+    grid.appendChild(cell);
+    cells.push(cell);
+  }
+}
+
+// Tone generator
+function playTone(inst, duration=0.2){
+  const osc = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+  osc.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+  osc.frequency.value = inst.freq;
+  osc.type = inst.type;
+  gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
+}
+
+let isPlaying = false;
+let currentStep = 0;
+let intervalId = null;
+
+function playStep(){
+  // Highlight current step
+  cells.forEach(cell => cell.classList.remove('current'));
+  characters.forEach(c => c.classList.remove('active'));
+  for(let r=0; r<rows; r++){
+    const cell = cells[r*cols + currentStep];
+    cell.classList.add('current');
+    if(cell.classList.contains('active')){
+      playTone(instruments[r]);
+      characters[r].classList.add('active');
+    }
+  }
+  currentStep = (currentStep + 1) % cols;
+}
+
+function startLoop(){
+  if(!isPlaying){
+    isPlaying = true;
+    const bpm = parseInt(document.getElementById('bpm').value);
+    const intervalTime = (60 / bpm) * 1000;
+    intervalId = setInterval(playStep, intervalTime);
+  }
+}
+
+function stopLoop(){
+  if(isPlaying){
+    clearInterval(intervalId);
+    isPlaying = false;
+    cells.forEach(cell => cell.classList.remove('current'));
+    characters.forEach(c => c.classList.remove('active'));
+  }
+}
+
+document.getElementById('playBtn').onclick = startLoop;
+document.getElementById('stopBtn').onclick = stopLoop;
+
+document.getElementById('bpm').onchange = () => {
+  if(isPlaying){
+    clearInterval(intervalId);
+    const bpm = parseInt(document.getElementById('bpm').value);
+    const intervalTime = (60 / bpm) * 1000;
+    intervalId = setInterval(playStep, intervalTime);
+  }
+};
+</script>
+</body>
+</html>
